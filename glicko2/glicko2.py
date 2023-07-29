@@ -76,7 +76,11 @@ class Player:
         
         """
         self.phi = math.sqrt(math.pow(self.phi, 2) + math.pow(self.vol, 2))
-            
+    
+    def win_prob(self, other):
+        """ Calculate the chance of winning a game against another player. """
+        return 1 / (1 + math.exp(-1 * self._g(math.sqrt(self.phi**2 + other.phi**2)) * (self.mu - other.mu)))
+        
     def update_player(self, rating_list, RD_list, outcome_list):
         """ Calculates the new rating and rating deviation of the player.
         
