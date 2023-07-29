@@ -25,6 +25,20 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 import math
 
+SCALE = 173.7178
+
+def rating_to_mu(rating):
+   return (rating - 1500) / SCALE
+
+def mu_to_rating(mu):
+   return (mu * SCALE) + 1500 
+
+def rd_to_phi(rd):
+   return rd / SCALE
+
+def phi_to_rd(phi):
+   return phi * SCALE
+
 class Player:
     # Class attribute
     # The system constant, which constrains
@@ -32,26 +46,26 @@ class Player:
     _tau = 0.5
 
     def getRating(self):
-        return (self.__rating * 173.7178) + 1500 
+        return mu_to_rating(self.mu)
 
     def setRating(self, rating):
-        self.__rating = (rating - 1500) / 173.7178
+        self.mu = rating_to_mu(rating)
 
     rating = property(getRating, setRating)
 
     def getRd(self):
-        return self.__rd * 173.7178
+        return phi_to_rd(self.phi)
 
     def setRd(self, rd):
-        self.__rd = rd / 173.7178
+        self.phi = rd_to_phi(rd)
 
     rd = property(getRd, setRd)
      
     def __init__(self, rating = 1500, rd = 350, vol = 0.06):
         # For testing purposes, preload the values
         # assigned to an unrated player.
-        self.setRating(rating)
-        self.setRd(rd)
+        self.rating = rating
+        self.rd = rd
         self.vol = vol
             
     def _preRatingRD(self):
@@ -61,8 +75,8 @@ class Player:
         preRatingRD() -> None
         
         """
-        self.__rd = math.sqrt(math.pow(self.__rd, 2) + math.pow(self.vol, 2))
-        
+        self.phi = math.sqrt(math.pow(self.phi, 2) + math.pow(self.vol, 2))
+            
     def update_player(self, rating_list, RD_list, outcome_list):
         """ Calculates the new rating and rating deviation of the player.
         
@@ -70,20 +84,20 @@ class Player:
         
         """
         # Convert the rating and rating deviation values for internal use.
-        rating_list = [(x - 1500) / 173.7178 for x in rating_list]
-        RD_list = [x / 173.7178 for x in RD_list]
+        rating_list = [rating_to_mu(x) for x in rating_list]
+        RD_list = [rd_to_phi(x) for x in RD_list]
 
         v = self._v(rating_list, RD_list)
         self.vol = self._newVol(rating_list, RD_list, outcome_list, v)
         self._preRatingRD()
         
-        self.__rd = 1 / math.sqrt((1 / math.pow(self.__rd, 2)) + (1 / v))
+        self.phi = 1 / math.sqrt((1 / math.pow(self.phi, 2)) + (1 / v))
         
         tempSum = 0
         for i in range(len(rating_list)):
             tempSum += self._g(RD_list[i]) * \
                        (outcome_list[i] - self._E(rating_list[i], RD_list[i]))
-        self.__rating += math.pow(self.__rd, 2) * tempSum
+        self.mu += math.pow(self.phi, 2) * tempSum
         
     #step 5        
     def _newVol(self, rating_list, RD_list, outcome_list, v):
@@ -103,8 +117,8 @@ class Player:
         B = None
         delta = self._delta(rating_list, RD_list, outcome_list, v)
         tau = self._tau
-        if (delta ** 2)  > ((self.__rd**2) + v):
-          B = math.log(delta**2 - self.__rd**2 - v)
+        if (delta ** 2)  > ((self.phi**2) + v):
+          B = math.log(delta**2 - self.phi**2 - v)
         else:        
           k = 1
           while self._f(a - k * math.sqrt(tau**2), delta, v, a) < 0:
@@ -135,8 +149,8 @@ class Player:
         
     def _f(self, x, delta, v, a):
       ex = math.exp(x)
-      num1 = ex * (delta**2 - self.__rating**2 - v - ex)
-      denom1 = 2 * ((self.__rating**2 + v + ex)**2)
+      num1 = ex * (delta**2 - self.mu**2 - v - ex)
+      denom1 = 2 * ((self.mu**2 + v + ex)**2)
       return  (num1 / denom1) - ((x - a) / (self._tau**2))
         
     def _delta(self, rating_list, RD_list, outcome_list, v):
@@ -162,14 +176,14 @@ class Player:
             tempSum += math.pow(self._g(RD_list[i]), 2) * tempE * (1 - tempE)
         return 1 / tempSum
         
-    def _E(self, p2rating, p2RD):
+    def _E(self, p2mu, p2phi):
         """ The Glicko E function.
         
         _E(int) -> float
         
         """
-        return 1 / (1 + math.exp(-1 * self._g(p2RD) * \
-                                 (self.__rating - p2rating)))
+        return 1 / (1 + math.exp(-1 * self._g(p2phi) * \
+                                 (self.mu - p2mu)))
         
     def _g(self, RD):
         """ The Glicko2 g(RD) function.
